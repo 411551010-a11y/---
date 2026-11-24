@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>台灣夜市俄羅斯方塊 | Taiwanese Night Market Tetris</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* 全局字體與禁止雙擊縮放、反白 */
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #0b0e1c;
+      background-image: 
+        radial-gradient(circle at 20% 15%, rgba(255, 87, 34, 0.16) 0%, transparent 45%),
+        radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.14) 0%, transparent 50%),
+        linear-gradient(180deg, #090c18 0%, #141933 50%, #0d1124 100%);
+      color: #fff8ee;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* 夜市霓虹燈招牌光暈效果 */
+    .neon-title {
+      text-shadow:
+        0 0 6px #ff9e2c,
+        0 0 16px #ff5722,
+        0 0 32px #e91e63;
+    }
+
+    .neon-box {
+      background: rgba(18, 24, 48, 0.85);
+      border: 2px solid rgba(255, 167, 38, 0.55);
+      box-shadow:
+        0 0 15px rgba(255, 111, 0, 0.25),
+        inset 0 0 12px rgba(255, 167, 38, 0.12);
+      backdrop-filter: blur(8px);
+    }
+
+    .neon-cyan-box {
+      background: rgba(15, 22, 44, 0.88);
+      border: 2px solid rgba(34, 211, 238, 0.5);
+      box-shadow:
+        0 0 14px rgba(34, 211, 238, 0.2),
+        inset 0 0 10px rgba(34, 211, 238, 0.1);
+    }
+
+    /* 紅燈籠搖曳動畫 */
+    @keyframes lanternSway {
+      0%, 100% { transform: rotate(-4deg); }
+      50% { transform: rotate(4deg); }
+    }
+    .lantern {
+      transform-origin: top center;
+      animation: lanternSway 3.5s ease-in-out infinite;
+    }
+    .lantern-delay {
+      animation-delay: 1.7s;
+    }
+
+    /* 消除行數時的浮動讚美文字動畫 */
+    @keyframes floatScoreUp {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, 10px) scale(0.7);
+      }
+      20% {
+        opacity: 1;
+        transform: translate(-50%, -8px) scale(1.12);
+      }
+      80% {
+        opacity: 1;
+        transform: translate(-50%, -36px) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -55px) scale(0.95);
+      }
+    }
+    .floating-callout {
+      position: absolute;
+      left: 50%;
+      top: 42%;
+      pointer-events: none;
+      white-space: nowrap;
+      font-weight: 900;
+      z-index: 30;
+      animation: floatScoreUp 1.15s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(255, 152, 0, 0.9);
+    }
+
+    /* 觸控按鈕立體感 */
+    .arcade-btn {
+      background: linear-gradient(180deg, #27325e 0%, #171e3b 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 4px 0 #92400e, 0 6px 12px rgba(0,0,0,0.5);
+      transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.1s;
+    }
+    .arcade-btn:active, .arcade-btn.pressed {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #92400e, 0 2px 5px rgba(0,0,0,0.5);
+      background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+      color: #111827;
+    }
+
+    .arcade-btn-action {
+      background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+      border: 2px solid #fca5a5;
+      box-shadow: 0 4px 0 #7f1d1d, 0 6px 12px rgba(0,0,0,0.5);
+    }
+    .arcade-btn-action:active, .arcade-btn-action.pressed {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #7f1d1d;
+    }
+
+    /* 自訂捲軸（圖鑑用） */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.6);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-between py-2 px-2 sm:py-4 sm:px-4">
+
+  <!-- 頂部夜市招牌與燈籠裝飾 -->
+  <header class="w-full max-w-4xl flex items-center justify-between mb-2 sm:mb-3 px-2 relative">
+    <!-- 左側紅燈籠 SVG -->
+    <div class="lantern flex flex-col items-center">
+      <div class="w-0.5 h-2 bg-amber-400"></div>
+      <svg width="32" height="40" viewBox="0 0 36 44" class="drop-shadow-[0_0_8px_rgba(239,68,68,0.85)]">
+        <rect x="11" y="2" width="14" height="4" rx="1" fill="#fbbf24"/>
+        <ellipse cx="18" cy="21" rx="15" ry="16" fill="#dc2626" stroke="#fbbf24" stroke-width="1.5"/>
+        <ellipse cx="18" cy="21" rx="9" ry="15.5" fill="none" stroke="#f59e0b" stroke-width="0.9" opacity="0.7"/>
+        <text x="18" y="25" text-anchor="middle" fill="#fef08a" font-size="11" font-weight="900">夜</text>
+        <rect x="11" y="36" width="14" height="3.5" rx="1" fill="#fbbf24"/>
+        <line x1="18" y1="39.5" x2="18" y2="44" stroke="#fbbf24" stroke-width="2"/>
+      </svg>
+    </div>
+
+    <!-- 中央招牌標題 -->
+    <div class="text-center flex-1 mx-2">
+      <div class="inline-block px-3 py-1 sm:px-6 sm:py-1.5 rounded-2xl border-2 border-amber-400/80 bg-gradient-to-r from-red-950/90 via-amber-950/90 to-red-950/90 shadow-[0_0_20px_rgba(245,158,11,0.35)]">
+        <h1 class="text-lg sm:text-2xl md:text-3xl font-black tracking-wider text-amber-300 neon-title">
+          🏮 台灣夜市俄羅斯方塊 🏮
+        </h1>
+        <p class="text-[10px] sm:text-xs text-amber-200/80 tracking-widest mt-0.5">
+          TAIWANESE NIGHT MARKET SNACKS TETRIS
+        </p>
+      </div>
+    </div>
+
+    <!-- 右側紅燈籠 + 音效/暫停快捷鍵 -->
+    <div class="flex items-center gap-2">
+      <button id="soundToggleBtn" title="切換音效" class="p-2 rounded-xl neon-box text-amber-300 hover:bg-amber-500/20 active:scale-95 transition">
+        <span id="soundIcon" class="text-base sm:text-lg">🔊</span>
+      </button>
+      <button id="pauseTopBtn" title="暫停遊戲 (P)" class="p-2 rounded-xl neon-box text-amber-300 hover:bg-amber-500/20 active:scale-95 transition">
+        <span class="text-base sm:text-lg">⏸️</span>
+      </button>
+      <div class="lantern lantern-delay hidden sm:flex flex-col items-center">
+        <div class="w-0.5 h-2 bg-amber-400"></div>
+        <svg width="32" height="40" viewBox="0 0 36 44" class="drop-shadow-[0_0_8px_rgba(239,68,68,0.85)]">
+          <rect x="11" y="2" width="14" height="4" rx="1" fill="#fbbf24"/>
+          <ellipse cx="18" cy="21" rx="15" ry="16" fill="#dc2626" stroke="#fbbf24" stroke-width="1.5"/>
+          <ellipse cx="18" cy="21" rx="9" ry="15.5" fill="none" stroke="#f59e0b" stroke-width="0.9" opacity="0.7"/>
+          <text x="18" y="25" text-anchor="middle" fill="#fef08a" font-size="11" font-weight="900">市</text>
+          <rect x="11" y="36" width="14" height="3.5" rx="1" fill="#fbbf24"/>
+          <line x1="18" y1="39.5" x2="18" y2="44" stroke="#fbbf24" stroke-width="2"/>
+        </svg>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主遊戲區容器：響應式三欄（手機端自動緊湊排列） -->
+  <main class="w-full max-w-4xl flex flex-col md:flex-row items-center md:items-start justify-center gap-2 sm:gap-4 flex-1">
+
+    <!-- 手機版頂部精簡狀態列（僅在 md 以下顯示） -->
+    <div class="w-full max-w-[360px] grid grid-cols-4 gap-1.5 md:hidden">
+      <!-- 保留 Hold -->
+      <div class="neon-cyan-box rounded-xl p-1.5 flex flex-col items-center justify-between">
+        <span class="text-[10px] font-bold text-cyan-300">保留 (C)</span>
+        <canvas id="holdCanvasMobile" width="64" height="48" class="w-14 h-10"></canvas>
+        <span id="holdNameMobile" class="text-[9px] text-amber-200 truncate w-full text-center">無</span>
+      </div>
+      <!-- 分數與最高分 -->
+      <div class="neon-box rounded-xl p-1.5 flex flex-col justify-center items-center col-span-2">
+        <div class="flex justify-between w-full px-1 text-[10px] text-amber-300/80">
+          <span>最高: <b id="highScoreMobile" class="text-amber-300">0</b></span>
+          <span>LV.<b id="levelMobile" class="text-pink-400">1</b> | <b id="linesMobile">0</b>行</span>
+        </div>
+        <div id="scoreMobile" class="text-xl font-black text-amber-300 tracking-tight leading-tight mt-0.5">0</div>
+        <div id="currentSnackMobile" class="text-[10px] text-emerald-300 font-bold truncate w-full text-center">準備開攤！</div>
+      </div>
+      <!-- 下一個 Next -->
+      <div class="neon-cyan-box rounded-xl p-1.5 flex flex-col items-center justify-between">
+        <span class="text-[10px] font-bold text-cyan-300">下一攤</span>
+        <canvas id="nextCanvasMobile" width="64" height="48" class="w-14 h-10"></canvas>
+        <span id="nextNameMobile" class="text-[9px] text-amber-200 truncate w-full text-center">-</span>
+      </div>
+    </div>
+
+    <!-- 電腦版左側欄：保留區 (Hold) + 當前小吃情報 + 操作指南 -->
+    <aside class="hidden md:flex flex-col gap-3 w-52">
+      <!-- 保留區 Hold -->
+      <div class="neon-cyan-box rounded-2xl p-3 flex flex-col items-center">
+        <div class="w-full flex justify-between items-center mb-1">
+          <span class="text-xs font-black text-cyan-300 tracking-wider">🥡 保留餐盒 (HOLD)</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-200 border border-cyan-500/40">C / Shift</span>
+        </div>
+        <div class="w-full h-24 bg-slate-950/70 rounded-xl border border-cyan-500/20 flex items-center justify-center my-1">
+          <canvas id="holdCanvasDesktop" width="120" height="84"></canvas>
+        </div>
+        <div id="holdNameDesktop" class="text-sm font-bold text-amber-300 mt-0.5">尚未保留</div>
+        <div id="holdDescDesktop" class="text-[11px] text-slate-300 text-center leading-snug mt-0.5 h-8 flex items-center">
+          按下 C 可暫存目前小吃
+        </div>
+      </div>
+
+      <!-- 當前落下方塊小吃介紹卡片 -->
+      <div class="neon-box rounded-2xl p-3">
+        <div class="text-xs font-black text-amber-400 mb-1 flex items-center gap-1">
+          <span>🔥</span> <span>目前上菜</span>
+        </div>
+        <div id="currentSnackName" class="text-base font-black text-white">台灣夜市小吃</div>
+        <p id="currentSnackDesc" class="text-xs text-amber-100/80 mt-1 leading-relaxed min-h-[3rem]">
+          準備好迎接熱騰騰的夜市美食了嗎？
+        </p>
+      </div>
+
+      <!-- 鍵盤操作說明 -->
+      <div class="neon-box rounded-2xl p-3 text-xs text-amber-100/85 space-y-1.5">
+        <div class="font-black text-amber-300 border-b border-amber-500/30 pb-1 mb-1">🎮 攤位操作指南</div>
+        <div class="flex justify-between"><span>左右移動</span><span class="font-bold text-cyan-300">← / →</span></div>
+        <div class="flex justify-between"><span>旋轉角度</span><span class="font-bold text-cyan-300">↑ / X</span></div>
+        <div class="flex justify-between"><span>加速下落</span><span class="font-bold text-cyan-300">↓</span></div>
+        <div class="flex justify-between"><span>直接上菜</span><span class="font-bold text-pink-400">空白鍵 Space</span></div>
+        <div class="flex justify-between"><span>保留小吃</span><span class="font-bold text-cyan-300">C / Shift</span></div>
+        <div class="flex justify-between"><span>暫停休息</span><span class="font-bold text-amber-300">P</span></div>
+      </div>
+    </aside>
+
+    <!-- 中央主遊戲畫布區域 -->
+    <div class="relative flex flex-col items-center justify-center">
+      <div id="boardWrapper" class="relative p-1.5 sm:p-2 rounded-2xl bg-gradient-to-b from-amber-500 via-red-600 to-amber-600 shadow-[0_0_30px_rgba(255,111,0,0.4)]">
+        <!-- 攤位遮雨棚條紋裝飾 -->
+        <div class="w-full h-2.5 rounded-t-xl mb-1 flex overflow-hidden">
+          <div class="flex-1 bg-red-600"></div>
+          <div class="flex-1 bg-amber-100"></div>
+          <div class="flex-1 bg-red-600"></div>
+          <div class="flex-1 bg-amber-100"></div>
+          <div class="flex-1 bg-red-600"></div>
+          <div class="flex-1 bg-amber-100"></div>
+          <div class="flex-1 bg-red-600"></div>
+          <div class="flex-1 bg-amber-100"></div>
+        </div>
+
+        <div class="relative bg-[#090d1e] rounded-xl overflow-hidden border border-amber-300/30">
+          <canvas id="gameCanvas"></canvas>
+
+          <!-- 浮動特效容器 -->
+          <div id="floatingContainer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+          <!-- 開始畫面覆蓋層（含台灣小吃圖鑑） -->
+          <div id="startOverlay" class="absolute inset-0 bg-[#090d1e]/95 backdrop-blur-md flex flex-col items-center justify-between p-3 sm:p-4 z-20">
+            <div class="text-center mt-1">
+              <span class="inline-block px-2.5 py-0.5 rounded-full bg-red-600/80 text-amber-200 text-[11px] font-bold border border-amber-400/50 mb-1">
+                道地台灣味 × 經典方塊
+              </span>
+              <h2 class="text-xl sm:text-2xl font-black text-amber-300">夜市美食圖鑑</h2>
+              <p class="text-[11px] sm:text-xs text-slate-300 mt-0.5">將 7 種經典小吃整齊排滿橫列即可上菜得分！</p>
+            </div>
+
+            <!-- 小吃圖鑑列表 -->
+            <div id="snackGuideList" class="w-full flex-1 overflow-y-auto my-2 pr-1 space-y-1.5">
+              <!-- 由 JS 動態生成 7 種小吃預覽圖與介紹 -->
+            </div>
+
+            <button id="startBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-400 hover:to-red-400 text-slate-950 font-black text-base sm:text-lg shadow-[0_0_20px_rgba(245,158,11,0.6)] active:scale-95 transition cursor-pointer">
+              🔥 開始擺攤營業！
+            </button>
+          </div>
+
+          <!-- 暫停畫面覆蓋層 -->
+          <div id="pauseOverlay" class="hidden absolute inset-0 bg-[#090d1e]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 text-center">
+            <div class="text-4xl mb-2">🧋</div>
+            <h2 class="text-2xl font-black text-amber-300 mb-1">老闆休息中</h2>
+            <p class="text-xs text-slate-300 mb-6">喝口珍珠奶茶喘口氣，隨時繼續營業！</p>
+            <div class="w-full space-y-3">
+              <button id="resumeBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-base shadow-lg active:scale-95 transition">
+                繼續營業 (P)
+              </button>
+              <button id="restartFromPauseBtn" class="w-full py-2.5 rounded-xl neon-box text-amber-200 font-bold text-sm hover:bg-amber-500/20 active:scale-95 transition">
+                重新開攤
+              </button>
+            </div>
+          </div>
+
+          <!-- 遊戲結束結算覆蓋層 -->
+          <div id="gameOverOverlay" class="hidden absolute inset-0 bg-[#090d1e]/95 backdrop-blur-md flex flex-col items-center justify-center p-4 z-20 text-center">
+            <div class="text-xs font-bold text-pink-400 tracking-widest uppercase">NIGHT MARKET CLOSED</div>
+            <h2 class="text-2xl sm:text-3xl font-black text-amber-300 mt-0.5 mb-2">今日打烊結算！</h2>
+
+            <!-- 獲得稱號徽章 -->
+            <div class="w-full rounded-2xl bg-gradient-to-b from-amber-500/20 to-red-500/20 border border-amber-400/60 p-3 mb-3">
+              <div class="text-[11px] text-amber-200/80">獲得夜市美食家稱號</div>
+              <div id="finalTitle" class="text-lg sm:text-xl font-black text-amber-300 mt-0.5 drop-shadow">
+                夜市見習生
+              </div>
+              <div id="finalTitleDesc" class="text-[11px] text-slate-300 mt-1">
+                剛踏入夜市的美食探索者！
+              </div>
+            </div>
+
+            <!-- 數據統計 -->
+            <div class="w-full grid grid-cols-3 gap-2 mb-4">
+              <div class="bg-slate-900/90 rounded-xl p-2 border border-amber-500/30">
+                <div class="text-[10px] text-slate-400">總營業額</div>
+                <div id="finalScore" class="text-base sm:text-lg font-black text-amber-300">0</div>
+              </div>
+              <div class="bg-slate-900/90 rounded-xl p-2 border border-cyan-500/30">
+                <div class="text-[10px] text-slate-400">上菜盤數</div>
+                <div id="finalLines" class="text-base sm:text-lg font-black text-cyan-300">0</div>
+              </div>
+              <div class="bg-slate-900/90 rounded-xl p-2 border border-pink-500/30">
+                <div class="text-[10px] text-slate-400">最高紀錄</div>
+                <div id="finalHighScore" class="text-base sm:text-lg font-black text-pink-400">0</div>
+              </div>
+            </div>
+
+            <button id="restartBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-slate-950 font-black text-base shadow-[0_0_18px_rgba(245,158,11,0.5)] active:scale-95 transition">
+              🔄 再開一攤！
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 電腦版右側欄：下一個方塊 (Next) + 營業額計分板 -->
+    <aside class="hidden md:flex flex-col gap-3 w-52">
+      <!-- 下一個方塊 Next -->
+      <div class="neon-cyan-box rounded-2xl p-3 flex flex-col items-center">
+        <div class="w-full flex justify-between items-center mb-1">
+          <span class="text-xs font-black text-cyan-300 tracking-wider">🍽️ 下一道小吃 (NEXT)</span>
+        </div>
+        <div class="w-full h-24 bg-slate-950/70 rounded-xl border border-cyan-500/20 flex items-center justify-center my-1">
+          <canvas id="nextCanvasDesktop" width="120" height="84"></canvas>
+        </div>
+        <div id="nextNameDesktop" class="text-sm font-bold text-amber-300 mt-0.5">-</div>
+        <div id="nextDescDesktop" class="text-[11px] text-slate-300 text-center leading-snug mt-0.5 h-8 flex items-center">
+          準備出餐中
+        </div>
+      </div>
+
+      <!-- 營業額與等級計分板 -->
+      <div class="neon-box rounded-2xl p-3.5 space-y-3">
+        <div>
+          <div class="text-[11px] font-bold text-amber-200/75">💰 夜市營業額 (SCORE)</div>
+          <div id="scoreDesktop" class="text-2xl font-black text-amber-300 tracking-wide">0</div>
+        </div>
+
+        <div class="border-t border-amber-500/25 pt-2">
+          <div class="text-[11px] font-bold text-pink-300/80">👑 歷史最高營業額</div>
+          <div id="highScoreDesktop" class="text-lg font-black text-pink-400">0</div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 border-t border-amber-500/25 pt-2">
+          <div class="bg-slate-950/60 rounded-xl p-2 text-center">
+            <div class="text-[10px] text-slate-400">攤位等級</div>
+            <div id="levelDesktop" class="text-lg font-black text-cyan-300">1</div>
+          </div>
+          <div class="bg-slate-950/60 rounded-xl p-2 text-center">
+            <div class="text-[10px] text-slate-400">消除行數</div>
+            <div id="linesDesktop" class="text-lg font-black text-emerald-300">0</div>
+          </div>
+        </div>
+
+        <div id="comboBadgeDesktop" class="hidden rounded-xl bg-gradient-to-r from-pink-600/30 to-amber-600/30 border border-pink-400/50 py-1.5 px-2 text-center">
+          <span class="text-xs font-black text-pink-300">🔥 連續好評 <span id="comboCountDesktop">0</span> COMBO!</span>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- 手機/平板觸控操作面板（在螢幕寬度小於 md 或觸控裝置時顯示） -->
+  <footer id="touchControls" class="w-full max-w-[380px] md:hidden mt-2 px-1 pb-1">
+    <div class="grid grid-cols-5 gap-2 items-center">
+      <!-- 左移 -->
+      <button id="btnLeft" class="arcade-btn rounded-2xl py-3.5 flex flex-col items-center justify-center text-amber-200 font-black text-lg">
+        <span>◀</span>
+      </button>
+      <!-- 軟降 -->
+      <button id="btnDown" class="arcade-btn rounded-2xl py-3.5 flex flex-col items-center justify-center text-amber-200 font-black text-lg">
+        <span>▼</span>
+      </button>
+      <!-- 右移 -->
+      <button id="btnRight" class="arcade-btn rounded-2xl py-3.5 flex flex-col items-center justify-center text-amber-200 font-black text-lg">
+        <span>▶</span>
+      </button>
+      <!-- 保留 Hold -->
+      <button id="btnHold" class="arcade-btn rounded-2xl py-2.5 flex flex-col items-center justify-center text-cyan-300 font-bold text-xs">
+        <span class="text-base">🥡</span>
+        <span>保留</span>
+      </button>
+      <!-- 旋轉 -->
+      <button id="btnRotate" class="arcade-btn rounded-2xl py-2.5 flex flex-col items-center justify-center text-amber-300 font-bold text-xs">
+        <span class="text-base">↻</span>
+        <span>旋轉</span>
+      </button>
+    </div>
+    <!-- 直接落下 Hard Drop 大按鈕 -->
+    <button id="btnHardDrop" class="arcade-btn-action w-full mt-2 py-2.5 rounded-2xl text-white font-black text-sm tracking-widest flex items-center justify-center gap-2">
+      <span>⚡ 直接上菜 (HARD DROP) ⚡</span>
+    </button>
+  </footer>
+
+  <script>
+    /**
+     * ============================================================================
+     * 台灣夜市俄羅斯方塊 (Taiwanese Night Market Snacks Tetris)
+     * 完整遊戲核心邏輯、客製化台灣小吃 Canvas 繪圖與 Web Audio API 音效引擎
+     * ============================================================================
+     */
+
+    // ----------------------------------------------------------------------------
+    // 1. 台灣 7 大經典小吃方塊定義（形狀矩陣、名稱、介紹、主色調）
+    // ----------------------------------------------------------------------------
+    const SNACK_TYPES = {
+      I: {
+        id: 'I',
+        name: '大腸包小腸',
+        subtitle: '4格長條｜炭烤雙腸絕配',
+        desc: '白胖糯米腸切開夾入多汁台式香腸，搭配蒜片、小黃瓜與酸菜，一口咬下超滿足！',
+        color: '#d97706',
+        glow: 'rgba(245, 158, 11, 0.6)',
+        matrix: [
+          [0, 0, 0, 0],
+          [1, 1, 1, 1],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ]
+      },
+      O: {
+        id: 'O',
+        name: '金黃臭豆腐',
+        subtitle: '2×2方塊｜外酥內嫩配泡菜',
+        desc: '炸到金黃酥脆的方正臭豆腐，中間戳洞淋上蒜蓉醬油，再塞滿酸甜台式泡菜！',
+        color: '#f59e0b',
+        glow: 'rgba(251, 191, 36, 0.65)',
+        matrix: [
+          [1, 1],
+          [1, 1]
+        ]
+      },
+      T: {
+        id: 'T',
+        name: '黑糖珍珠奶茶',
+        subtitle: 'T字型｜台灣國民手搖飲',
+        desc: '香醇濃郁奶茶搭配Q彈黑糖波霸珍珠，插上寬吸管，逛夜市人手一杯的靈魂飲品！',
+        color: '#b45309',
+        glow: 'rgba(217, 119, 6, 0.6)',
+        matrix: [
+          [0, 1, 0],
+          [1, 1, 1],
+          [0, 0, 0]
+        ]
+      },
+      S: {
+        id: 'S',
+        name: '夜市蚵仔煎',
+        subtitle: 'S型｜海味鮮蚵與甜辣醬',
+        desc: '肥美鮮蚵、翠綠小白菜與Q軟太白粉漿煎至微焦，淋上靈魂粉紅海山甜辣醬！',
+        color: '#ef4444',
+        glow: 'rgba(239, 68, 68, 0.6)',
+        matrix: [
+          [0, 1, 1],
+          [1, 1, 0],
+          [0, 0, 0]
+        ]
+      },
+      Z: {
+        id: 'Z',
+        name: '九層塔鹽酥雞',
+        subtitle: 'Z型｜邪惡宵夜炸物霸主',
+        desc: '醃製入味的無骨雞塊炸得金黃酥香，撒上胡椒鹽並與翠綠九層塔葉一起爆香！',
+        color: '#eab308',
+        glow: 'rgba(234, 179, 8, 0.6)',
+        matrix: [
+          [1, 1, 0],
+          [0, 1, 1],
+          [0, 0, 0]
+        ]
+      },
+      J: {
+        id: 'J',
+        name: '紅燒牛肉麵',
+        subtitle: 'J型｜濃郁湯頭與半筋半肉',
+        desc: '慢火熬煮的甘醇紅燒湯頭，搭配彈牙麵條、軟嫩牛肉塊與酸菜青蔥！',
+        color: '#991b1b',
+        glow: 'rgba(220, 38, 38, 0.6)',
+        matrix: [
+          [1, 0, 0],
+          [1, 1, 1],
+          [0, 0, 0]
+        ]
+      },
+      L: {
+        id: 'L',
+        name: '蒸籠小籠包',
+        subtitle: 'L型｜皮薄餡多爆湯汁',
+        desc: '熱氣騰騰的竹編蒸籠裡，白胖精緻的十八摺小籠包，輕咬一口鮮美湯汁迸發！',
+        color: '#f3f4f6',
+        glow: 'rgba(255, 255, 255, 0.55)',
+        matrix: [
+          [0, 0, 1],
+          [1, 1, 1],
+          [0, 0, 0]
+        ]
+      }
+    };
+
+    const SNACK_KEYS = Object.keys(SNACK_TYPES);
+
+    // ----------------------------------------------------------------------------
+    // 2. Web Audio API 復古夜市合成音效系統（無需外部音檔，支援靜音）
+    // ----------------------------------------------------------------------------
+    class NightMarketAudio {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            this.ctx = new AudioCtx();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      toggleMute() {
+        this.muted = !this.muted;
+        return this.muted;
+      }
+
+      playTone(freq, type = 'triangle', duration = 0.08, volume = 0.12, delay = 0) {
+        if (this.muted) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime + delay;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+
+          gain.gain.setValueAtTime(volume, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + duration);
+        } catch (e) {
+          // 忽略音訊自動播放限制錯誤
+        }
+      }
+
+      move() {
+        this.playTone(320, 'sine', 0.04, 0.07);
+      }
+
+      rotate() {
+        this.playTone(480, 'triangle', 0.07, 0.1);
+        this.playTone(640, 'triangle', 0.06, 0.08, 0.03);
+      }
+
+      softDrop() {
+        this.playTone(220, 'sine', 0.03, 0.05);
+      }
+
+      hardDrop() {
+        this.playTone(180, 'square', 0.09, 0.12);
+        this.playTone(110, 'triangle', 0.12, 0.14, 0.03);
+      }
+
+      hold() {
+        this.playTone(440, 'sine', 0.06, 0.09);
+        this.playTone(587.33, 'sine', 0.08, 0.09, 0.05);
+      }
+
+      clearLine(linesCount) {
+        // 台灣五聲音階歡快旋律 (Do Re Mi Sol La)
+        const notes = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5];
+        const count = Math.min(linesCount + 2, notes.length);
+        for (let i = 0; i < count; i++) {
+          this.playTone(notes[i], 'triangle', 0.16, 0.15, i * 0.065);
+        }
+      }
+
+      gameOver() {
+        const notes = [440, 392, 349.23, 293.66, 261.63];
+        notes.forEach((n, idx) => {
+          this.playTone(n, 'sawtooth', 0.22, 0.1, idx * 0.14);
+        });
+      }
+    }
+
+    const audio = new NightMarketAudio();
+
+    // ----------------------------------------------------------------------------
+    // 3. 客製化「台灣特色小吃」Canvas 精細繪圖引擎
+    //    在每個格子 (x, y, size) 內繪製獨特的美食細節，而非單純色塊
+    // ----------------------------------------------------------------------------
+    function drawSnackCell(ctx, typeId, x, y, size, isGhost = false) {
+      ctx.save();
+
+      if (isGhost) {
+        // 幽靈方塊：半透明霓虹虛線框與微弱底色
+        const snack = SNACK_TYPES[typeId];
+        ctx.strokeStyle = snack ? snack.color : '#fbbf24';
+        ctx.globalAlpha = 0.42;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        roundRect(ctx, x + 2, y + 2, size - 4, size - 4, 5);
+        ctx.stroke();
+        ctx.fillStyle = snack ? snack.color : '#fbbf24';
+        ctx.globalAlpha = 0.12;
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+
+      const pad = 1;
+      const w = size - pad * 2;
+      const h = size - pad * 2;
+      const cx = x + size / 2;
+      const cy = y + size / 2;
+      const r = Math.max(4, size * 0.18);
+
+      // 裁剪在圓角方格內
+      roundRect(ctx, x + pad, y + pad, w, h, r);
+      ctx.clip();
+
+      switch (typeId) {
+        case 'I': {
+          // 【大腸包小腸】：外層米白色糯米腸 + 中間紅潤香腸 + 炭烤紋路 + 翠綠小黃瓜與蒜片
+          ctx.fillStyle = '#f5f0e1'; // 糯米腸底色
+          ctx.fillRect(x, y, size, size);
+
+          // 上下邊緣微焦烤色
+          const gradI = ctx.createLinearGradient(x, y, x, y + size);
+          gradI.addColorStop(0, '#d6c7a9');
+          gradI.addColorStop(0.22, '#faf6eb');
+          gradI.addColorStop(0.78, '#faf6eb');
+          gradI.addColorStop(1, '#c7b28a');
+          ctx.fillStyle = gradI;
+          ctx.fillRect(x, y, size, size);
+
+          // 中央夾入的紅潤台式香腸
+          ctx.fillStyle = '#b91c1c';
+          roundRect(ctx, x + 2, y + size * 0.28, size - 4, size * 0.44, 4);
+          ctx.fill();
+
+          // 香腸油亮反光與炭烤斜紋
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(x + 3, y + size * 0.33, size - 6, size * 0.14);
+          ctx.strokeStyle = '#7f1d1d';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x + size * 0.3, y + size * 0.28);
+          ctx.lineTo(x + size * 0.2, y + size * 0.72);
+          ctx.moveTo(x + size * 0.7, y + size * 0.28);
+          ctx.lineTo(x + size * 0.6, y + size * 0.72);
+          ctx.stroke();
+
+          // 點綴蒜片（白）與小黃瓜片（綠）
+          ctx.fillStyle = '#22c55e';
+          ctx.beginPath();
+          ctx.arc(x + size * 0.28, y + size * 0.24, size * 0.12, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#fef9c3';
+          ctx.beginPath();
+          ctx.arc(x + size * 0.72, y + size * 0.74, size * 0.11, 0, Math.PI * 2);
+          ctx.fill();
+          break;
+        }
+
+        case 'O': {
+          // 【金黃臭豆腐】：酥脆金黃方塊 + 中央醬汁凹洞 + 台式酸甜泡菜點綴
+          const gradO = ctx.createRadialGradient(cx, cy, size * 0.1, cx, cy, size * 0.6);
+          gradO.addColorStop(0, '#fbbf24');
+          gradO.addColorStop(0.7, '#d97706');
+          gradO.addColorStop(1, '#92400e');
+          ctx.fillStyle = gradO;
+          ctx.fillRect(x, y, size, size);
+
+          // 酥脆外皮網格紋理
+          ctx.strokeStyle = 'rgba(254, 243, 199, 0.45)';
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(x + 3.5, y + 3.5, size - 7, size - 7);
+
+          // 中間戳洞淋上的深色蒜蓉醬油
+          ctx.fillStyle = '#451a03';
+          ctx.beginPath();
+          ctx.arc(cx, cy, size * 0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 旁邊搭一片翠綠與微紅辣椒的台式泡菜
+          ctx.fillStyle = '#86efac';
+          ctx.beginPath();
+          ctx.ellipse(x + size * 0.72, y + size * 0.3, size * 0.18, size * 0.1, 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(x + size * 0.68, y + size * 0.24, size * 0.08, size * 0.08);
+          break;
+        }
+
+        case 'T': {
+          // 【黑糖珍珠奶茶】：香醇奶茶漸層 + 底部黑糖波霸珍珠 + 粗吸管高光
+          const gradT = ctx.createLinearGradient(x, y, x, y + size);
+          gradT.addColorStop(0, '#f3d5b5'); // 奶泡頂層
+          gradT.addColorStop(0.35, '#d4a373'); // 濃郁奶茶
+          gradT.addColorStop(0.8, '#9c6644'); // 黑糖掛壁
+          gradT.addColorStop(1, '#4a2511');
+          ctx.fillStyle = gradT;
+          ctx.fillRect(x, y, size, size);
+
+          // 粗吸管斜插效果
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.beginPath();
+          ctx.moveTo(x + size * 0.6, y);
+          ctx.lineTo(x + size * 0.78, y);
+          ctx.lineTo(x + size * 0.66, y + size);
+          ctx.lineTo(x + size * 0.48, y + size);
+          ctx.closePath();
+          ctx.fill();
+
+          // 底部Q彈黑糖珍珠（多顆圓珠＋反光點）
+          const pearls = [
+            [0.24, 0.78], [0.44, 0.82], [0.64, 0.76], [0.80, 0.82],
+            [0.34, 0.64], [0.55, 0.66], [0.74, 0.62]
+          ];
+          pearls.forEach(([px, py]) => {
+            ctx.fillStyle = '#1c1008';
+            ctx.beginPath();
+            ctx.arc(x + size * px, y + size * py, size * 0.095, 0, Math.PI * 2);
+            ctx.fill();
+            // 珍珠Q彈白光點
+            ctx.fillStyle = '#fde68a';
+            ctx.beginPath();
+            ctx.arc(x + size * (px - 0.03), y + size * (py - 0.03), size * 0.025, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          break;
+        }
+
+        case 'S': {
+          // 【夜市蚵仔煎】：金黃煎蛋餅皮 + 小白菜綠葉 + 飽滿鮮蚵 + 粉紅海山甜辣醬
+          ctx.fillStyle = '#facc15'; // 蛋液底色
+          ctx.fillRect(x, y, size, size);
+
+          // 半透明Q彈太白粉漿光澤
+          ctx.fillStyle = 'rgba(254, 249, 195, 0.55)';
+          ctx.beginPath();
+          ctx.arc(cx, cy, size * 0.38, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 翠綠小白菜葉
+          ctx.fillStyle = '#16a34a';
+          ctx.beginPath();
+          ctx.ellipse(x + size * 0.3, y + size * 0.32, size * 0.18, size * 0.1, -0.4, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 飽滿鮮蚵（灰白肚＋深色裙邊）
+          ctx.fillStyle = '#e2e8f0';
+          ctx.strokeStyle = '#475569';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.ellipse(x + size * 0.66, y + size * 0.42, size * 0.16, size * 0.12, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // 靈魂粉紅海山甜辣醬淋醬
+          ctx.strokeStyle = '#f43f5e';
+          ctx.lineWidth = Math.max(2.5, size * 0.12);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(x + size * 0.2, y + size * 0.72);
+          ctx.quadraticCurveTo(cx, y + size * 0.52, x + size * 0.8, y + size * 0.75);
+          ctx.stroke();
+          break;
+        }
+
+        case 'Z': {
+          // 【九層塔鹽酥雞】：金黃酥炸雞塊顆粒 + 胡椒鹽粒 + 翠綠九層塔葉
+          ctx.fillStyle = '#92400e'; // 紙袋與炸物深底
+          ctx.fillRect(x, y, size, size);
+
+          // 兩塊不規則金黃鹽酥雞塊
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.arc(x + size * 0.36, y + size * 0.4, size * 0.26, 0, Math.PI * 2);
+          ctx.arc(x + size * 0.65, y + size * 0.64, size * 0.25, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 酥脆麵衣亮點
+          ctx.fillStyle = '#fde047';
+          ctx.beginPath();
+          ctx.arc(x + size * 0.32, y + size * 0.34, size * 0.12, 0, Math.PI * 2);
+          ctx.arc(x + size * 0.62, y + size * 0.58, size * 0.11, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 炸得香脆的九層塔葉
+          ctx.fillStyle = '#15803d';
+          ctx.beginPath();
+          ctx.ellipse(x + size * 0.72, y + size * 0.28, size * 0.18, size * 0.09, -0.6, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 胡椒鹽細點
+          ctx.fillStyle = '#451a03';
+          ctx.fillRect(x + size * 0.35, y + size * 0.42, 1.5, 1.5);
+          ctx.fillRect(x + size * 0.64, y + size * 0.65, 1.5, 1.5);
+          break;
+        }
+
+        case 'J': {
+          // 【紅燒牛肉麵】：濃郁深紅燒湯頭 + 彈牙黃麵條 + 大塊牛肉與青蔥花
+          const gradJ = ctx.createRadialGradient(cx, cy, 2, cx, cy, size * 0.7);
+          gradJ.addColorStop(0, '#b91c1c');
+          gradJ.addColorStop(1, '#450a0a');
+          ctx.fillStyle = gradJ;
+          ctx.fillRect(x, y, size, size);
+
+          // 彎曲麵條線條
+          ctx.strokeStyle = '#fde047';
+          ctx.lineWidth = Math.max(2, size * 0.09);
+          ctx.beginPath();
+          ctx.moveTo(x + size * 0.15, y + size * 0.65);
+          ctx.bezierCurveTo(x + size * 0.4, y + size * 0.45, x + size * 0.6, y + size * 0.85, x + size * 0.85, y + size * 0.62);
+          ctx.stroke();
+
+          // 軟嫩厚切紅燒牛肉塊
+          ctx.fillStyle = '#5c1d16';
+          roundRect(ctx, x + size * 0.22, y + size * 0.2, size * 0.42, size * 0.3, 3);
+          ctx.fill();
+          // 牛筋紋理
+          ctx.strokeStyle = '#fca5a5';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + size * 0.26, y + size * 0.35);
+          ctx.lineTo(x + size * 0.6, y + size * 0.35);
+          ctx.stroke();
+
+          // 翠綠蔥花圈
+          ctx.strokeStyle = '#4ade80';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(x + size * 0.74, y + size * 0.32, size * 0.08, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+        }
+
+        case 'L': {
+          // 【蒸籠小籠包】：竹編蒸籠底紋 + 白胖圓潤小籠包 + 頂部摺痕
+          ctx.fillStyle = '#b45309'; // 竹編蒸籠底色
+          ctx.fillRect(x, y, size, size);
+
+          // 竹編交錯線條
+          ctx.strokeStyle = '#78350f';
+          ctx.lineWidth = 1;
+          for (let i = 0; i < size; i += 5) {
+            ctx.beginPath();
+            ctx.moveTo(x + i, y);
+            ctx.lineTo(x + i, y + size);
+            ctx.stroke();
+          }
+
+          // 白胖小籠包本體
+          const gradL = ctx.createRadialGradient(cx - size * 0.08, cy - size * 0.08, 1, cx, cy, size * 0.42);
+          gradL.addColorStop(0, '#ffffff');
+          gradL.addColorStop(0.75, '#f1f5f9');
+          gradL.addColorStop(1, '#cbd5e1');
+          ctx.fillStyle = gradL;
+          ctx.beginPath();
+          ctx.arc(cx, cy, size * 0.38, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 小籠包頂部精緻摺痕
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1.1;
+          for (let a = 0; a < Math.PI * 2; a += Math.PI / 3) {
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(a) * size * 0.05, cy + Math.sin(a) * size * 0.05);
+            ctx.lineTo(cx + Math.cos(a) * size * 0.22, cy + Math.sin(a) * size * 0.22);
+            ctx.stroke();
+          }
+          break;
+        }
+      }
+
+      // 外框高光與立體邊線，讓每個方塊格子清晰易辨識
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 1.2;
+      roundRect(ctx, x + pad + 0.5, y + pad + 0.5, w - 1, h - 1, r);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // 輔助函數：繪製圓角矩形路徑
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+
+    // ----------------------------------------------------------------------------
+    // 4. 遊戲核心狀態與參數設定
+    // ----------------------------------------------------------------------------
+    const COLS = 10;
+    const ROWS = 20;
+    const HIGH_SCORE_KEY = 'tw_night_market_tetris_highscore_v1';
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const holdCanvasDesktop = document.getElementById('holdCanvasDesktop');
+    const holdCtxDesktop = holdCanvasDesktop.getContext('2d');
+    const nextCanvasDesktop = document.getElementById('nextCanvasDesktop');
+    const nextCtxDesktop = nextCanvasDesktop.getContext('2d');
+
+    const holdCanvasMobile = document.getElementById('holdCanvasMobile');
+    const holdCtxMobile = holdCanvasMobile.getContext('2d');
+    const nextCanvasMobile = document.getElementById('nextCanvasMobile');
+    const nextCtxMobile = nextCanvasMobile.getContext('2d');
+
+    let blockSize = 28; // 會依據視窗大小動態計算
+    let board = [];
+    let currentPiece = null;
+    let nextPieceType = null;
+    let holdPieceType = null;
+    let canHold = true;
+    let bag = [];
+
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0', 10);
+    let lines = 0;
+    let level = 1;
+    let combo = -1;
+
+    let isRunning = false;
+    let isPaused = false;
+    let isGameOver = false;
+
+    let dropCounter = 0;
+    let dropInterval = 900;
+    let lastTime = 0;
+    let animationId = null;
+
+    // 消除整行時的閃光特效列陣列
+    let flashRows = [];
+    let flashTimer = 0;
+
+    // ----------------------------------------------------------------------------
+    // 5. 響應式畫布尺寸調整
+    // ----------------------------------------------------------------------------
+    function resizeGameCanvas() {
+      const isMobile = window.innerWidth < 768;
+      // 保留頂部標題、手機狀態列與底部按鈕的空間
+      const reservedHeight = isMobile ? 255 : 130;
+      const availableHeight = Math.max(320, window.innerHeight - reservedHeight);
+      const maxBlockByHeight = Math.floor(availableHeight / ROWS);
+      const maxBlockByWidth = Math.floor((window.innerWidth - (isMobile ? 36 : 480)) / COLS);
+
+      blockSize = Math.max(18, Math.min(34, maxBlockByHeight, maxBlockByWidth));
+
+      canvas.width = COLS * blockSize;
+      canvas.height = ROWS * blockSize;
+
+      draw();
+    }
+
+    // ----------------------------------------------------------------------------
+    // 6. 7-Bag 公平隨機洗牌演算法（確保每 7 個方塊必出現所有台灣小吃各一次）
+    // ----------------------------------------------------------------------------
+    function getNextFromBag() {
+      if (bag.length === 0) {
+        bag = [...SNACK_KEYS];
+        for (let i = bag.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [bag[i], bag[j]] = [bag[j], bag[i]];
+        }
+      }
+      return bag.pop();
+    }
+
+    function createPiece(typeId) {
+      const template = SNACK_TYPES[typeId];
+      // 深拷貝矩陣
+      const matrix = template.matrix.map(row => [...row]);
+      return {
+        type: typeId,
+        matrix: matrix,
+        x: Math.floor(COLS / 2) - Math.ceil(matrix[0].length / 2),
+        y: typeId === 'I' ? -1 : 0
+      };
+    }
+
+    // ----------------------------------------------------------------------------
+    // 7. 碰撞偵測、旋轉 (SRS 簡易踢牆) 與方塊操作
+    // ----------------------------------------------------------------------------
+    function collide(arena, piece) {
+      const m = piece.matrix;
+      for (let y = 0; y < m.length; y++) {
+        for (let x = 0; x < m[y].length; x++) {
+          if (m[y][x] !== 0) {
+            const boardX = piece.x + x;
+            const boardY = piece.y + y;
+            if (
+              boardX < 0 ||
+              boardX >= COLS ||
+              boardY >= ROWS ||
+              (boardY >= 0 && arena[boardY][boardX] !== 0)
+            ) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function rotateMatrix(matrix, dir) {
+      const N = matrix.length;
+      const result = Array.from({ length: N }, () => Array(N).fill(0));
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          if (dir > 0) {
+            result[x][N - 1 - y] = matrix[y][x];
+          } else {
+            result[N - 1 - x][y] = matrix[y][x];
+          }
+        }
+      }
+      return result;
+    }
+
+    function playerRotate(dir = 1) {
+      if (!isRunning || isPaused || isGameOver) return;
+      const originalMatrix = currentPiece.matrix;
+      const originalX = currentPiece.x;
+      currentPiece.matrix = rotateMatrix(currentPiece.matrix, dir);
+
+      // 踢牆測試（Wall Kick）
+      const offsets = [0, 1, -1, 2, -2];
+      for (let offset of offsets) {
+        currentPiece.x = originalX + offset;
+        if (!collide(board, currentPiece)) {
+          audio.rotate();
+          draw();
+          return;
+        }
+      }
+
+      // 無法旋轉則還原
+      currentPiece.matrix = originalMatrix;
+      currentPiece.x = originalX;
+    }
+
+    function playerMove(dir) {
+      if (!isRunning || isPaused || isGameOver) return;
+      currentPiece.x += dir;
+      if (collide(board, currentPiece)) {
+        currentPiece.x -= dir;
+      } else {
+        audio.move();
+        draw();
+      }
+    }
+
+    function playerDrop(isManual = false) {
+      if (!isRunning || isPaused || isGameOver) return;
+      currentPiece.y++;
+      if (collide(board, currentPiece)) {
+        currentPiece.y--;
+        mergePiece();
+        clearCompletedLines();
+        spawnNextPiece();
+      } else if (isManual) {
+        score += 1;
+        updateHighScore();
+        audio.softDrop();
+        updateUI();
+      }
+      dropCounter = 0;
+      draw();
+    }
+
+    function playerHardDrop() {
+      if (!isRunning || isPaused || isGameOver) return;
+      let droppedCells = 0;
+      while (!collide(board, currentPiece)) {
+        currentPiece.y++;
+        droppedCells++;
+      }
+      currentPiece.y--;
+      droppedCells--;
+
+      if (droppedCells > 0) {
+        score += droppedCells * 2;
+        updateHighScore();
+      }
+
+      audio.hardDrop();
+      mergePiece();
+      clearCompletedLines();
+      spawnNextPiece();
+      dropCounter = 0;
+      draw();
+    }
+
+    function playerHold() {
+      if (!isRunning || isPaused || isGameOver || !canHold) return;
+      audio.hold();
+      const currentType = currentPiece.type;
+
+      if (holdPieceType === null) {
+        holdPieceType = currentType;
+        spawnNextPiece();
+      } else {
+        const temp = holdPieceType;
+        holdPieceType = currentType;
+        currentPiece = createPiece(temp);
+      }
+
+      canHold = false;
+      updateUI();
+      drawSideCanvases();
+      draw();
+    }
+
+    // 計算幽靈方塊 (Ghost Piece) 的落底 Y 座標
+    function getGhostY() {
+      const ghost = {
+        matrix: currentPiece.matrix,
+        x: currentPiece.x,
+        y: currentPiece.y
+      };
+      while (!collide(board, ghost)) {
+        ghost.y++;
+      }
+      return ghost.y - 1;
+    }
+
+    function mergePiece() {
+      currentPiece.matrix.forEach((row, y) => {
+        row.forEach((val, x) => {
+          if (val !== 0) {
+            const by = currentPiece.y + y;
+            const bx = currentPiece.x + x;
+            if (by >= 0 && by < ROWS && bx >= 0 && bx < COLS) {
+              board[by][bx] = currentPiece.type;
+            }
+          }
+        });
+      });
+    }
+
+    // ----------------------------------------------------------------------------
+    // 8. 消除整行、計分、連擊 Combo 與浮動美食讚美文字
+    // ----------------------------------------------------------------------------
+    function clearCompletedLines() {
+      let clearedCount = 0;
+      const clearedIndices = [];
+
+      for (let y = ROWS - 1; y >= 0; y--) {
+        if (board[y].every(cell => cell !== 0)) {
+          clearedIndices.push(y);
+          clearedCount++;
+        }
+      }
+
+      if (clearedCount > 0) {
+        // 觸發閃光特效
+        flashRows = [...clearedIndices];
+        flashTimer = 180; // 毫秒
+
+        // 移除滿行並於頂部補空行
+        for (let idx of clearedIndices) {
+          board.splice(idx, 1);
+        }
+        for (let i = 0; i < clearedCount; i++) {
+          board.unshift(Array(COLS).fill(0));
+        }
+
+        combo++;
+        lines += clearedCount;
+
+        // 經典計分倍數 + Combo 加成
+        const lineBasePoints = [0, 100, 300, 500, 800];
+        const gained = (lineBasePoints[clearedCount] * level) + (combo > 0 ? combo * 50 * level : 0);
+        score += gained;
+        updateHighScore();
+
+        // 每消除 10 行升一級並加快速度
+        const newLevel = Math.floor(lines / 10) + 1;
+        if (newLevel > level) {
+          level = newLevel;
+          dropInterval = Math.max(110, 900 - (level - 1) * 75);
+        }
+
+        audio.clearLine(clearedCount);
+        spawnFloatingCallout(clearedCount, gained, combo);
+      } else {
+        combo = -1;
+      }
+
+      updateUI();
+    }
+
+    function spawnFloatingCallout(clearedCount, gained, currentCombo) {
+      const container = document.getElementById('floatingContainer');
+      const el = document.createElement('div');
+      el.className = 'floating-callout text-center';
+
+      const praises = {
+        1: ['真香！', '現點現做！', '飽足感 UP！'],
+        2: ['雙拼美味！', '老闆再來一碗！', '絕配好滋味！'],
+        3: ['三寶全餐！', '排隊名店水準！', '太銷魂啦！'],
+        4: ['🎊 夜市大滿貫！ 🎊']
+      };
+
+      const list = praises[clearedCount] || praises[1];
+      const mainText = list[Math.floor(Math.random() * list.length)];
+      const comboText = currentCombo > 0 ? ` (${currentCombo}連擊!)` : '';
+
+      el.innerHTML = `
+        <div class="text-base sm:text-xl text-amber-300">${mainText}</div>
+        <div class="text-xs sm:text-sm text-cyan-300">+${gained} 元${comboText}</div>
+      `;
+
+      container.appendChild(el);
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 1200);
+    }
+
+    function spawnNextPiece() {
+      currentPiece = createPiece(nextPieceType || getNextFromBag());
+      nextPieceType = getNextFromBag();
+      canHold = true;
+
+      updateUI();
+      drawSideCanvases();
+
+      // 若新方塊一出生即碰撞，判定遊戲結束
+      if (collide(board, currentPiece)) {
+        triggerGameOver();
+      }
+    }
+
+    function updateHighScore() {
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem(HIGH_SCORE_KEY, String(highScore));
+      }
+    }
+
+    // ----------------------------------------------------------------------------
+    // 9. 畫面渲染（主遊戲網格、幽靈方塊、預覽小視窗）
+    // ----------------------------------------------------------------------------
+    function draw() {
+      // 清空背景
+      ctx.fillStyle = '#090d1e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 繪製夜市微光網格線
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.08)';
+      ctx.lineWidth = 1;
+      for (let x = 1; x < COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * blockSize, 0);
+        ctx.lineTo(x * blockSize, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 1; y < ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * blockSize);
+        ctx.lineTo(canvas.width, y * blockSize);
+        ctx.stroke();
+      }
+
+      // 繪製已固定的小吃方塊
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const cellType = board[y][x];
+          if (cellType !== 0) {
+            drawSnackCell(ctx, cellType, x * blockSize, y * blockSize, blockSize, false);
+          }
+        }
+      }
+
+      // 繪製當前回合方塊與幽靈預覽
+      if (currentPiece && isRunning && !isGameOver) {
+        const ghostY = getGhostY();
+        // 幽靈方塊
+        currentPiece.matrix.forEach((row, y) => {
+          row.forEach((val, x) => {
+            if (val !== 0 && ghostY + y >= 0) {
+              drawSnackCell(
+                ctx,
+                currentPiece.type,
+                (currentPiece.x + x) * blockSize,
+                (ghostY + y) * blockSize,
+                blockSize,
+                true
+              );
+            }
+          });
+        });
+
+        // 實體落下方塊
+        currentPiece.matrix.forEach((row, y) => {
+          row.forEach((val, x) => {
+            if (val !== 0 && currentPiece.y + y >= 0) {
+              drawSnackCell(
+                ctx,
+                currentPiece.type,
+                (currentPiece.x + x) * blockSize,
+                (currentPiece.y + y) * blockSize,
+                blockSize,
+                false
+              );
+            }
+          });
+        });
+      }
+
+      // 消除整行時的金色閃光特效
+      if (flashTimer > 0 && flashRows.length > 0) {
+        ctx.save();
+        ctx.fillStyle = `rgba(254, 240, 138, ${Math.min(0.75, flashTimer / 200)})`;
+        flashRows.forEach(rowIdx => {
+          ctx.fillRect(0, rowIdx * blockSize, canvas.width, blockSize);
+        });
+        ctx.restore();
+      }
+    }
+
+    function drawMiniPreview(targetCtx, targetCanvas, typeId) {
+      targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+      if (!typeId) return;
+
+      const snack = SNACK_TYPES[typeId];
+      const m = snack.matrix;
+
+      // 計算實際有方塊的邊界，讓預覽完美置中
+      let minX = 4, maxX = -1, minY = 4, maxY = -1;
+      for (let y = 0; y < m.length; y++) {
+        for (let x = 0; x < m[y].length; x++) {
+          if (m[y][x]) {
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+          }
+        }
+      }
+
+      const pieceCols = maxX - minX + 1;
+      const pieceRows = maxY - minY + 1;
+      const cellSize = Math.floor(
+        Math.min(
+          (targetCanvas.width - 12) / Math.max(pieceCols, 3),
+          (targetCanvas.height - 8) / Math.max(pieceRows, 2)
+        )
+      );
+
+      const offsetX = Math.floor((targetCanvas.width - pieceCols * cellSize) / 2);
+      const offsetY = Math.floor((targetCanvas.height - pieceRows * cellSize) / 2);
+
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          if (m[y][x]) {
+            drawSnackCell(
+              targetCtx,
+              typeId,
+              offsetX + (x - minX) * cellSize,
+              offsetY + (y - minY) * cellSize,
+              cellSize,
+              false
+            );
+          }
+        }
+      }
+    }
+
+    function drawSideCanvases() {
+      drawMiniPreview(nextCtxDesktop, nextCanvasDesktop, nextPieceType);
+      drawMiniPreview(nextCtxMobile, nextCanvasMobile, nextPieceType);
+      drawMiniPreview(holdCtxDesktop, holdCanvasDesktop, holdPieceType);
+      drawMiniPreview(holdCtxMobile, holdCanvasMobile, holdPieceType);
+    }
+
+    // ----------------------------------------------------------------------------
+    // 10. UI 文字與數據同步更新
+    // ----------------------------------------------------------------------------
+    function updateUI() {
+      // 分數與等級
+      document.getElementById('scoreDesktop').textContent = score.toLocaleString();
+      document.getElementById('scoreMobile').textContent = score.toLocaleString();
+      document.getElementById('highScoreDesktop').textContent = highScore.toLocaleString();
+      document.getElementById('highScoreMobile').textContent = highScore.toLocaleString();
+      document.getElementById('levelDesktop').textContent = level;
+      document.getElementById('levelMobile').textContent = level;
+      document.getElementById('linesDesktop').textContent = lines;
+      document.getElementById('linesMobile').textContent = lines;
+
+      // Combo 顯示
+      const comboBadge = document.getElementById('comboBadgeDesktop');
+      if (combo > 0) {
+        comboBadge.classList.remove('hidden');
+        document.getElementById('comboCountDesktop').textContent = combo;
+      } else {
+        comboBadge.classList.add('hidden');
+      }
+
+      // 目前方塊資訊
+      if (currentPiece) {
+        const cur = SNACK_TYPES[currentPiece.type];
+        document.getElementById('currentSnackName').textContent = cur.name;
+        document.getElementById('currentSnackDesc').textContent = cur.desc;
+        document.getElementById('currentSnackMobile').textContent = `上菜：${cur.name}`;
+      }
+
+      // 下一個方塊資訊
+      if (nextPieceType) {
+        const nxt = SNACK_TYPES[nextPieceType];
+        document.getElementById('nextNameDesktop').textContent = nxt.name;
+        document.getElementById('nextDescDesktop').textContent = nxt.subtitle;
+        document.getElementById('nextNameMobile').textContent = nxt.name;
+      }
+
+      // 保留方塊資訊
+      if (holdPieceType) {
+        const hld = SNACK_TYPES[holdPieceType];
+        document.getElementById('holdNameDesktop').textContent = hld.name;
+        document.getElementById('holdDescDesktop').textContent = canHold ? '可按 C 交換上菜' : '本回合已保留過';
+        document.getElementById('holdNameMobile').textContent = hld.name;
+      } else {
+        document.getElementById('holdNameDesktop').textContent = '尚未保留';
+        document.getElementById('holdDescDesktop').textContent = '按下 C 可暫存目前小吃';
+        document.getElementById('holdNameMobile').textContent = '無';
+      }
+    }
+
+    // ----------------------------------------------------------------------------
+    // 11. 主遊戲迴圈 (RequestAnimationFrame) 與流程控制
+    // ----------------------------------------------------------------------------
+    function gameLoop(time = 0) {
+      if (!isRunning || isPaused || isGameOver) return;
+
+      const deltaTime = time - lastTime;
+      lastTime = time;
+
+      if (flashTimer > 0) {
+        flashTimer = Math.max(0, flashTimer - deltaTime);
+      }
+
+      dropCounter += deltaTime;
+      if (dropCounter > dropInterval) {
+        playerDrop(false);
+      }
+
+      draw();
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function startNewGame() {
+      audio.init();
+      board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+      bag = [];
+      score = 0;
+      lines = 0;
+      level = 1;
+      combo = -1;
+      dropInterval = 900;
+      dropCounter = 0;
+      holdPieceType = null;
+      canHold = true;
+      flashRows = [];
+      flashTimer = 0;
+
+      nextPieceType = getNextFromBag();
+      spawnNextPiece();
+
+      isRunning = true;
+      isPaused = false;
+      isGameOver = false;
+
+      document.getElementById('startOverlay').classList.add('hidden');
+      document.getElementById('pauseOverlay').classList.add('hidden');
+      document.getElementById('gameOverOverlay').classList.add('hidden');
+
+      updateUI();
+      drawSideCanvases();
+      draw();
+
+      if (animationId) cancelAnimationFrame(animationId);
+      lastTime = performance.now();
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function togglePause() {
+      if (!isRunning || isGameOver) return;
+      isPaused = !isPaused;
+      const pauseOverlay = document.getElementById('pauseOverlay');
+      if (isPaused) {
+        pauseOverlay.classList.remove('hidden');
+      } else {
+        pauseOverlay.classList.add('hidden');
+        lastTime = performance.now();
+        animationId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function getFoodieRank(finalScore) {
+      if (finalScore >= 15000) {
+        return {
+          title: '🏆 台灣夜市米其林傳奇總鋪師',
+          desc: '全台灣從北到南的夜市攤商都尊稱您一聲大廚！'
+        };
+      } else if (finalScore >= 8000) {
+        return {
+          title: '👑 夜市美食天王 / 天后',
+          desc: '排隊人潮絡繹不絕，您的翻桌率與美味度無人能敵！'
+        };
+      } else if (finalScore >= 3500) {
+        return {
+          title: '🔥 巷仔內資深老饕',
+          desc: '對每一道台灣小吃瞭若指掌，出餐節奏精準到位！'
+        };
+      } else if (finalScore >= 1000) {
+        return {
+          title: '🍢 夜市人氣攤位老闆',
+          desc: '手腳俐落、生意興隆，已經是夜市的熟面孔囉！'
+        };
+      } else {
+        return {
+          title: '🧋 夜市逛街見習生',
+          desc: '剛開始體驗夜市魅力，多吃幾攤再來挑戰高分吧！'
+        };
+      }
+    }
+
+    function triggerGameOver() {
+      isGameOver = true;
+      isRunning = false;
+      updateHighScore();
+      audio.gameOver();
+
+      const rank = getFoodieRank(score);
+      document.getElementById('finalTitle').textContent = rank.title;
+      document.getElementById('finalTitleDesc').textContent = rank.desc;
+      document.getElementById('finalScore').textContent = score.toLocaleString();
+      document.getElementById('finalLines').textContent = lines;
+      document.getElementById('finalHighScore').textContent = highScore.toLocaleString();
+
+      document.getElementById('gameOverOverlay').classList.remove('hidden');
+    }
+
+    // ----------------------------------------------------------------------------
+    // 12. 生成開始畫面的「台灣夜市小吃圖鑑」
+    // ----------------------------------------------------------------------------
+    function renderSnackGuide() {
+      const container = document.getElementById('snackGuideList');
+      container.innerHTML = '';
+
+      SNACK_KEYS.forEach(key => {
+        const snack = SNACK_TYPES[key];
+        const card = document.createElement('div');
+        card.className = 'flex items-center gap-2.5 bg-slate-900/85 border border-amber-500/25 rounded-xl p-2';
+
+        const miniCanvas = document.createElement('canvas');
+        miniCanvas.width = 52;
+        miniCanvas.height = 36;
+        miniCanvas.className = 'shrink-0 bg-slate-950/70 rounded-lg border border-amber-400/20';
+        const mCtx = miniCanvas.getContext('2d');
+        drawMiniPreview(mCtx, miniCanvas, key);
+
+        const info = document.createElement('div');
+        info.className = 'text-left min-w-0 flex-1';
+        info.innerHTML = `
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-xs sm:text-sm font-black text-amber-300 truncate">${snack.name}</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 shrink-0">${key}型</span>
+          </div>
+          <p class="text-[10px] text-slate-300 leading-tight mt-0.5 line-clamp-2">${snack.desc}</p>
+        `;
+
+        card.appendChild(miniCanvas);
+        card.appendChild(info);
+        container.appendChild(card);
+      });
+    }
+
+    // ----------------------------------------------------------------------------
+    // 13. 鍵盤與手機觸控事件綁定
+    // ----------------------------------------------------------------------------
+    document.addEventListener('keydown', e => {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', 'Space', ' '].includes(e.key)) {
+        e.preventDefault();
+      }
+
+      if (e.key === 'p' || e.key === 'P') {
+        togglePause();
+        return;
+      }
+
+      if (!isRunning || isPaused || isGameOver) return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+          playerMove(-1);
+          break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+          playerMove(1);
+          break;
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+          playerDrop(true);
+          break;
+        case 'ArrowUp':
+        case 'x':
+        case 'X':
+        case 'w':
+        case 'W':
+          playerRotate(1);
+          break;
+        case 'z':
+        case 'Z':
+          playerRotate(-1);
+          break;
+        case ' ':
+          playerHardDrop();
+          break;
+        case 'c':
+        case 'C':
+        case 'Shift':
+          playerHold();
+          break;
+      }
+    });
+
+    // 綁定按鈕與長按連發（左右移動、加速下落支援長按）
+    function bindHoldButton(btnId, actionFn, allowRepeat = false) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      let repeatTimer = null;
+      let repeatInterval = null;
+
+      const startAction = (e) => {
+        e.preventDefault();
+        btn.classList.add('pressed');
+        actionFn();
+        if (allowRepeat) {
+          clearTimeout(repeatTimer);
+          clearInterval(repeatInterval);
+          repeatTimer = setTimeout(() => {
+            repeatInterval = setInterval(actionFn, 75);
+          }, 180);
+        }
+      };
+
+      const endAction = (e) => {
+        if (e) e.preventDefault();
+        btn.classList.remove('pressed');
+        clearTimeout(repeatTimer);
+        clearInterval(repeatInterval);
+      };
+
+      btn.addEventListener('touchstart', startAction, { passive: false });
+      btn.addEventListener('touchend', endAction, { passive: false });
+      btn.addEventListener('touchcancel', endAction, { passive: false });
+      btn.addEventListener('mousedown', startAction);
+      btn.addEventListener('mouseup', endAction);
+      btn.addEventListener('mouseleave', endAction);
+    }
+
+    bindHoldButton('btnLeft', () => playerMove(-1), true);
+    bindHoldButton('btnRight', () => playerMove(1), true);
+    bindHoldButton('btnDown', () => playerDrop(true), true);
+    bindHoldButton('btnRotate', () => playerRotate(1), false);
+    bindHoldButton('btnHold', () => playerHold(), false);
+    bindHoldButton('btnHardDrop', () => playerHardDrop(), false);
+
+    // 畫布手勢滑動支援（左右滑動移動、上滑旋轉、下滑直接落下）
+    let touchStartX = 0;
+    let touchStartY = 0;
+    canvas.addEventListener('touchstart', e => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', e => {
+      if (!isRunning || isPaused || isGameOver) return;
+      if (e.changedTouches.length === 1) {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+
+        if (Math.max(absX, absY) < 18) {
+          // 輕點畫布旋轉
+          playerRotate(1);
+        } else if (absX > absY) {
+          if (dx > 24) playerMove(1);
+          else if (dx < -24) playerMove(-1);
+        } else {
+          if (dy > 45) playerHardDrop();
+          else if (dy < -30) playerRotate(1);
+        }
+      }
+    }, { passive: true });
+
+    // 介面按鈕事件
+    document.getElementById('startBtn').addEventListener('click', startNewGame);
+    document.getElementById('restartBtn').addEventListener('click', startNewGame);
+    document.getElementById('restartFromPauseBtn').addEventListener('click', startNewGame);
+    document.getElementById('resumeBtn').addEventListener('click', togglePause);
+    document.getElementById('pauseTopBtn').addEventListener('click', togglePause);
+
+    document.getElementById('soundToggleBtn').addEventListener('click', () => {
+      const muted = audio.toggleMute();
+      document.getElementById('soundIcon').textContent = muted ? '🔇' : '🔊';
+    });
+
+    window.addEventListener('resize', resizeGameCanvas);
+
+    // ----------------------------------------------------------------------------
+    // 14. 網頁載入初始化
+    // ----------------------------------------------------------------------------
+    window.onload = function () {
+      board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+      renderSnackGuide();
+      updateUI();
+      resizeGameCanvas();
+    };
+  </script>
+</body>
+</html>
